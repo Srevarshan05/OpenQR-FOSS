@@ -90,8 +90,4 @@ This project is licensed under the **MIT License**.
 
 ---
 
-## 👤 Author
-
-Developed by **[@titan1502](https://huggingface.co/titan1502)**
-For feedback, issues, or collaboration, feel free to open an issue or discussion.
 
