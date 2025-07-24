@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL to QR Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #1a0d2b;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Canvas for Gradient Smudge and Stars */
+        #spaceCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        /* Main Container with Enhanced Glassmorphism */
+        .container {
+            background: rgba(30, 15, 50, 0.15);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(138, 43, 226, 0.2);
+            border-radius: 20px;
+            padding: 2.5rem;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 8px 40px rgba(138, 43, 226, 0.15);
+            text-align: center;
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: transform 0.4s ease, box-shadow 0.4s ease;
+        }
+
+        .container:hover {
+            transform: scale(1.03);
+            box-shadow: 0 12px 48px rgba(138, 43, 226, 0.25);
+        }
+
+        h1 {
+            color: #d8b9ff;
+            font-size: 2.5rem;
+            margin-bottom: 2rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(138, 43, 226, 0.8);
+        }
+
+        /* Input Field with Purple Glow */
+        .input-group {
+            position: relative;
+            margin-bottom: 2.5rem;
+            width: 100%;
+        }
+
+        input[type="url"] {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid #8a2be2;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            color: #fff;
+            font-size: 1.1rem;
+            outline: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px rgba(138, 43, 226, 0.3);
+        }
+
+        input[type="url"]::placeholder {
+            color: rgba(138, 43, 226, 0.6);
+        }
+
+        input[type="url"]:focus {
+            border-color: #e066ff;
+            box-shadow: 0 0 25px rgba(224, 102, 255, 0.5);
+            transform: scale(1.02);
+        }
+
+        /* Pulsating Button */
+        .btn {
+            display: inline-block;
+            padding: 1rem 2.5rem;
+            border: 2px solid #e066ff;
+            border-radius: 50px;
+            background: linear-gradient(45deg, #8a2be2, #e066ff);
+            color: #fff;
+            font-size: 1.2rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 10px rgba(224, 102, 255, 0.5); }
+            50% { box-shadow: 0 0 20px rgba(224, 102, 255, 0.8); }
+            100% { box-shadow: 0 0 10px rgba(224, 102, 255, 0.5); }
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.5s ease, height 0.5s ease;
+        }
+
+        .btn:hover::before {
+            width: 400px;
+            height: 400px;
+        }
+
+        .btn:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 0 30px rgba(224, 102, 255, 0.7);
+        }
+
+        /* QR Code Display with Dynamic Design */
+        .qr-code {
+            margin-top: 2.5rem;
+            padding: 1.5rem;
+            background: #fff;
+            border-radius: 10px;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 20px rgba(138, 43, 226, 0.4);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+            width: 100%;
+            max-width: 300px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .qr-code::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 3px solid transparent;
+            border-image: linear-gradient(45deg, #8a2be2, #e066ff) 1;
+            border-radius: 10px;
+            animation: borderGlow 3s infinite ease-in-out;
+        }
+
+        @keyframes borderGlow {
+            0% { border-image: linear-gradient(45deg, #8a2be2, #e066ff) 1; }
+            50% { border-image: linear-gradient(45deg, #e066ff, #8a2be2) 1; }
+            100% { border-image: linear-gradient(45deg, #8a2be2, #e066ff) 1; }
+        }
+
+        .qr-code.show {
+            display: flex;
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .qr-code img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 5px;
+        }
+
+        /* Export Options */
+        .export-options {
+            margin-top: 1rem;
+            display: none;
+            flex-direction: row;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .export-options.show {
+            display: flex;
+        }
+
+        .export-btn {
+            display: inline-block;
+            padding: 0.5rem 1.5rem;
+            border: 2px solid #e066ff;
+            border-radius: 50px;
+            background: linear-gradient(45deg, #8a2be2, #e066ff);
+            color: #fff;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            animation: pulse 2s infinite;
+        }
+
+        .export-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.5s ease, height 0.5s ease;
+        }
+
+        .export-btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .export-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 0 20px rgba(224, 102, 255, 0.7);
+        }
+
+        /* Success Message */
+        .success-message {
+            margin-top: 1rem;
+            color: #d8b9ff;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-align: center;
+            display: none;
+            text-shadow: 0 0 5px rgba(138, 43, 226, 0.8);
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 600px) {
+            .container {
+                padding: 1.5rem;
+                width: 95%;
+                max-width: 400px;
+            }
+
+            h1 {
+                font-size: 1.8rem;
+            }
+
+            input[type="url"] {
+                padding: 0.8rem;
+                font-size: 1rem;
+            }
+
+            .btn {
+                padding: 0.8rem 2rem;
+                font-size: 1rem;
+            }
+
+            .qr-code {
+                max-width: 250px;
+            }
+
+            .export-btn {
+                padding: 0.4rem 1.2rem;
+                font-size: 0.8rem;
+            }
+
+            .success-message {
+                font-size: 0.8rem;
+            }
+        }
+
+        @media (min-width: 601px) and (max-width: 1024px) {
+            .container {
+                padding: 2rem;
+                width: 90%;
+                max-width: 500px;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            input[type="url"] {
+                padding: 0.9rem;
+                font-size: 1.05rem;
+            }
+
+            .btn {
+                padding: 0.9rem 2.2rem;
+                font-size: 1.1rem;
+            }
+
+            .qr-code {
+                max-width: 280px;
+            }
+
+            .export-btn {
+                padding: 0.5rem 1.3rem;
+                font-size: 0.9rem;
+            }
+
+            .success-message {
+                font-size: 0.85rem;
+            }
+        }
+
+        @media (min-width: 1025px) {
+            .container {
+                padding: 2.5rem;
+                max-width: 600px;
+            }
+
+            h1 {
+                font-size: 2.5rem;
+            }
+
+            input[type="url"] {
+                padding: 1rem;
+                font-size: 1.1rem;
+            }
+
+            .btn {
+                padding: 1rem 2.5rem;
+                font-size: 1.2rem;
+            }
+
+            .qr-code {
+                max-width: 300px;
+            }
+
+            .success-message {
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="spaceCanvas"></canvas>
+    <div class="container">
+        <h1>URL to QR Generator</h1>
+        <div class="input-group">
+            <input type="url" id="urlInput" placeholder="Enter URL (e.g., https://example.com)" required>
+        </div>
+        <button class="btn" onclick="generateQR()">Generate QR</button>
+        <div class="qr-code" id="qrCode">
+            <img id="qrImage" alt="QR Code">
+        </div>
+        <div class="export-options" id="exportOptions">
+            <button class="export-btn" onclick="downloadQR('png')">PNG</button>
+            <button class="export-btn" onclick="downloadQR('jpg')">JPG</button>
+        </div>
+        <div class="success-message" id="successMessage"></div>
+    </div>
+
+    <script>
+        // Canvas-based Gradient Smudge Space Effect with Stars and Shooting Stars
+        const canvas = document.getElementById('spaceCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // Gradient Smudge Background
+        function drawBackground() {
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            gradient.addColorStop(0, '#1a0d2b');
+            gradient.addColorStop(0.3, '#2a1b4a');
+            gradient.addColorStop(0.7, '#4b2e8a');
+            gradient.addColorStop(1, '#1a0d2b');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Add blurred smudge effect
+            ctx.filter = 'blur(50px)';
+            const smudgeGradient = ctx.createRadialGradient(
+                canvas.width / 2, canvas.height / 2, 100,
+                canvas.width / 2, canvas.height / 2, canvas.width / 2
+            );
+            smudgeGradient.addColorStop(0, 'rgba(138, 43, 226, 0.3)');
+            smudgeGradient.addColorStop(1, 'rgba(138, 43, 226, 0)');
+            ctx.fillStyle = smudgeGradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.filter = 'none';
+        }
+
+        // Stars
+        const stars = [];
+        class Star {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 2 + 0.5;
+                this.opacity = Math.random() * 0.5 + 0.3;
+                this.twinkleSpeed = Math.random() * 0.02 + 0.01;
+            }
+
+            draw() {
+                ctx.fillStyle = `rgba(216, 185, 255, ${this.opacity})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            update() {
+                this.opacity = 0.3 + Math.sin(Date.now() * this.twinkleSpeed) * 0.2;
+            }
+        }
+
+        // Shooting Stars
+        const shootingStars = [];
+        class ShootingStar {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height / 2;
+                this.length = Math.random() * 50 + 20;
+                this.speed = Math.random() * 5 + 5;
+                this.angle = Math.PI / 4; // Diagonal trajectory
+                this.opacity = Math.random() * 0.5 + 0.5;
+            }
+
+            draw() {
+                ctx.strokeStyle = `rgba(216, 185, 255, ${this.opacity})`;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(
+                    this.x - this.length * Math.cos(this.angle),
+                    this.y - this.length * Math.sin(this.angle)
+                );
+                ctx.stroke();
+            }
+
+            update() {
+                this.x += this.speed * Math.cos(this.angle);
+                this.y += this.speed * Math.sin(this.angle);
+                this.opacity -= 0.02;
+                if (this.opacity <= 0) {
+                    this.reset();
+                }
+            }
+
+            reset() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height / 2;
+                this.opacity = Math.random() * 0.5 + 0.5;
+            }
+        }
+
+        // Initialize Stars and Shooting Stars
+        function init() {
+            for (let i = 0; i < 200; i++) {
+                stars.push(new Star());
+            }
+            for (let i = 0; i < 2; i++) {
+                shootingStars.push(new ShootingStar());
+            }
+        }
+
+        // Animation Loop
+        let lastFrameTime = performance.now();
+        const frameInterval = 1000 / 60; // Target 60 FPS
+        function animate(currentTime) {
+            if (currentTime - lastFrameTime >= frameInterval) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                drawBackground();
+                stars.forEach(star => {
+                    star.update();
+                    star.draw();
+                });
+                shootingStars.forEach(star => {
+                    star.update();
+                    star.draw();
+                });
+                lastFrameTime = currentTime - (currentTime % frameInterval);
+            }
+            requestAnimationFrame(animate);
+        }
+
+        init();
+        animate(performance.now());
+
+        // Resize Handler
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            drawBackground();
+        });
+
+        // QR Code Generation
+        async function generateQR() {
+            const urlInput = document.getElementById('urlInput').value;
+            const qrCodeDiv = document.getElementById('qrCode');
+            const qrImage = document.getElementById('qrImage');
+            const exportOptions = document.getElementById('exportOptions');
+            const successMessage = document.getElementById('successMessage');
+
+            if (!urlInput || !urlInput.startsWith('http')) {
+                alert('Please enter a valid URL starting with http:// or https://');
+                return;
+            }
+
+            try {
+                // Show loading state
+                qrCodeDiv.style.display = 'flex';
+                qrCodeDiv.style.opacity = '0.5';
+                qrImage.src = '';
+                exportOptions.classList.remove('show');
+                successMessage.classList.remove('show');
+                successMessage.textContent = '';
+
+                // Call Flask backend to generate QR code
+                const response = await fetch('/generate_qr', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: urlInput })
+                });
+
+                if (!response.ok) throw new Error('Failed to generate QR code');
+
+                const data = await response.json();
+                qrImage.src = data.qr_image;
+                qrCodeDiv.classList.add('show');
+                qrCodeDiv.style.opacity = '1';
+                exportOptions.classList.add('show');
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while generating the QR code.');
+                qrCodeDiv.style.display = 'none';
+                exportOptions.classList.remove('show');
+            }
+        }
+
+        // Download QR Code
+        async function downloadQR(format) {
+            const urlInput = document.getElementById('urlInput').value;
+            const qrCodeDiv = document.getElementById('qrCode');
+            const qrImage = document.getElementById('qrImage');
+            const exportOptions = document.getElementById('exportOptions');
+            const successMessage = document.getElementById('successMessage');
+
+            try {
+                const response = await fetch('/download_qr', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: urlInput, format: format })
+                });
+
+                if (!response.ok) throw new Error('Failed to download QR code');
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `qr_code.${format}`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+
+                // Show success message
+                successMessage.textContent = `${format.toUpperCase()} downloaded successfully`;
+                successMessage.classList.add('show');
+
+                // Reset QR code display and export options after a delay
+                setTimeout(() => {
+                    qrCodeDiv.classList.remove('show');
+                    qrCodeDiv.style.display = 'none';
+                    qrImage.src = '';
+                    exportOptions.classList.remove('show');
+                    successMessage.classList.remove('show');
+                    successMessage.textContent = '';
+                }, 2000); // Message displays for 2 seconds
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while downloading the QR code.');
+            }
+        }
+
+        // Trigger generateQR on Enter key press
+        document.getElementById('urlInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') generateQR();
+        });
+    </script>
+</body>
+</html>
